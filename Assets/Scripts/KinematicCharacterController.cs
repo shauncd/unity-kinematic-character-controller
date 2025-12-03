@@ -25,32 +25,26 @@ public class KinematicCharacterController : MonoBehaviour
 
     void Update()
     {
-        movementInputs = new Vector2(
-            Input.GetAxis("Horizontal"),
-            Input.GetAxis("Vertical")
-        );
+        
     }
 
     void FixedUpdate()
     {
+        movementInputs = new Vector2(
+            Input.GetAxis("Horizontal"),
+            Input.GetAxis("Vertical")
+        );
+
         velocityVector = (this.transform.forward * movementInputs.y + this.transform.right * movementInputs.x).normalized * moveSpeed;
         Vector3 newPosition = CalculateNewPosition(rb.position, velocityVector, collider);
         rb.MovePosition(newPosition);
     }
 
-    // TODO: refactor
-    private RaycastHit GroundCheck()
-    {
-        Physics.SphereCast(this.transform.position, collider.radius, Vector3.down, out RaycastHit hitInfo, collider.height / 2f + groundCheckOffset);
-
-        return hitInfo;
-    }
-
     private Vector3 CalculateNewPosition(Vector3 start, Vector3 velocityVector, CapsuleCollider playerCollider)
     {
         Vector3 moveVector = GetMovementThisFrame(velocityVector);
-        Vector3 newMoveVector = ProjectMovement(start, playerCollider, moveVector);
-        return start + newMoveVector;
+        Vector3 endPosition = RecursiveMove(start, moveVector, 0, playerCollider);
+        return endPosition;
     }
 
     private Vector3 GetMovementThisFrame(Vector3 velocityVector)
@@ -58,34 +52,35 @@ public class KinematicCharacterController : MonoBehaviour
         return velocityVector * Time.fixedDeltaTime;
     }
 
-    private Vector3 ProjectMovement(Vector3 origin, CapsuleCollider collider, Vector3 moveVector)
+    private Vector3 RecursiveMove(Vector3 start, Vector3 moveVector, int numBounces, CapsuleCollider collider)
     {
         Vector3 newMoveVector;
-        Vector3 collidePosition;
-        Vector3 remainingMove;
+        Vector3 newPosition;
+        Vector3 remainingMoveVector;
+        Vector3 adjustedMoveVector;
 
-        (Vector3 top, Vector3 bottom) sphereCenters = CalculateSpheresInCapsule(origin, collider.height, collider.radius);
-        Debug.DrawLine(sphereCenters.top, sphereCenters.bottom, Color.red);
-        Debug.DrawLine(sphereCenters.top, sphereCenters.top + moveVector * 50f, Color.red);
-        if (Physics.CapsuleCast(sphereCenters.top, sphereCenters.bottom, collider.radius, moveVector.normalized, out RaycastHit moveProjectionHitInfo, moveVector.magnitude))
+        RaycastHit moveProjectionHitInfo;
+        bool collided = ProjectMovement(start, collider, moveVector, out moveProjectionHitInfo);
+        if (!collided || numBounces > 5)
         {
-            collidePosition = origin + moveVector.normalized * (moveProjectionHitInfo.distance - colliderPadding);
-            newMoveVector = moveVector.normalized * (moveProjectionHitInfo.distance - colliderPadding); // Need to use colliderPadding or else collider will clip through wall
-            remainingMove = moveVector - newMoveVector;
-            //newMoveVector = Vector3.ProjectOnPlane(moveVector, moveProjectionHitInfo.normal);
-            newMoveVector = CollideAndSlide(collidePosition, remainingMove, moveProjectionHitInfo.normal);
-        } 
+            newPosition = start + moveVector;
+            return newPosition;
+        }
         else
         {
-            newMoveVector = moveVector;
+            newMoveVector = moveVector.normalized * (moveProjectionHitInfo.distance - colliderPadding);
+            newPosition = start + newMoveVector;
+            remainingMoveVector = moveVector - newMoveVector;
+            adjustedMoveVector = Vector3.ProjectOnPlane(remainingMoveVector, moveProjectionHitInfo.normal);
+            return RecursiveMove(newPosition, adjustedMoveVector, numBounces + 1, collider);
         }
-
-        return newMoveVector;
     }
 
-    private Vector3 CollideAndSlide(Vector3 startPosition, Vector3 moveVector, Vector3 normal) // Add parameter to limit number of collideandslides
+    private bool ProjectMovement(Vector3 origin, CapsuleCollider collider, Vector3 moveVector, out RaycastHit moveProjectionHitInfo)
     {
-        return Vector3.ProjectOnPlane(moveVector, normal);
+        (Vector3 top, Vector3 bottom) sphereCenters = CalculateSpheresInCapsule(origin, collider.height, collider.radius);
+        float effectiveRadius = collider.radius - colliderPadding;
+        return Physics.CapsuleCast(sphereCenters.top, sphereCenters.bottom, effectiveRadius, moveVector.normalized, out moveProjectionHitInfo, moveVector.magnitude);
     }
     
     private (Vector3, Vector3) CalculateSpheresInCapsule(Vector3 capsuleCenter, float capsuleHeight, float capsuleRadius)
@@ -99,6 +94,14 @@ public class KinematicCharacterController : MonoBehaviour
         bottom = capsuleCenter - new Vector3(0f, yOffset, 0f);
 
         return (top, bottom);
+    }
+
+    // TODO: refactor
+    private RaycastHit GroundCheck()
+    {
+        Physics.SphereCast(this.transform.position, collider.radius, Vector3.down, out RaycastHit hitInfo, collider.height / 2f + groundCheckOffset);
+
+        return hitInfo;
     }
 
     private void OnDrawGizmos()
