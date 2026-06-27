@@ -9,21 +9,12 @@ public class KinematicCharacterController : MonoBehaviour
     // Fields
     private float groundCheckOffset = 0.05f;
     public float speed = 3f;
+    public float collisionBuffer = 0.025f;
 
     void Awake()
     {
         rb = this.GetComponent<Rigidbody>();
         capsule = this.GetComponentInChildren<CapsuleCollider>();
-    }
-
-    void Start()
-    {
-        
-    }
-
-    void Update()
-    {
-        
     }
 
     void FixedUpdate()
@@ -58,8 +49,8 @@ public class KinematicCharacterController : MonoBehaviour
         RaycastHit hitInfo;
         bool collided = CastCharacter(currentPosition, frameAdjustedMovement, out hitInfo);
         if (collided) {
-            Debug.Log($"Collided at {hitInfo.point}");
-            finalPosition = currentPosition;
+            Vector3 displacement = frameAdjustedMovement.normalized * (hitInfo.distance - collisionBuffer);
+            finalPosition = currentPosition + displacement;
         }
         else
         {
