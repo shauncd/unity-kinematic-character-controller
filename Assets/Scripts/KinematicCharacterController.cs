@@ -44,20 +44,29 @@ public class KinematicCharacterController : MonoBehaviour
 
     private Vector3 ResolveMovement(Vector3 currentPosition, Vector3 frameAdjustedMovement)
     {
-        Vector3 finalPosition;
+        return ResolveMovement(currentPosition, frameAdjustedMovement, 0);
+    }
+
+    private Vector3 ResolveMovement(Vector3 startPosition, Vector3 desiredMovement, int numBounces)
+    {
+        if (numBounces > 2)
+        {
+            return startPosition;
+        }
 
         RaycastHit hitInfo;
-        bool collided = CastCharacter(currentPosition, frameAdjustedMovement, out hitInfo);
-        if (collided) {
-            Vector3 displacement = frameAdjustedMovement.normalized * (hitInfo.distance - collisionBuffer);
-            finalPosition = currentPosition + displacement;
-        }
-        else
+        bool collided = CastCharacter(startPosition, desiredMovement, out hitInfo); 
+        if (!collided)
         {
-            finalPosition = currentPosition + frameAdjustedMovement;
+            return startPosition + desiredMovement;
         }
 
-        return finalPosition;
+        Vector3 toMove = desiredMovement.normalized * (hitInfo.distance - collisionBuffer);
+        Vector3 remainingMove = desiredMovement - toMove;
+        Vector3 newPosition = startPosition + toMove;
+        Vector3 newMove = Vector3.ProjectOnPlane(remainingMove, hitInfo.normal);
+        
+        return ResolveMovement(newPosition, newMove, numBounces+1);
     }
 
     private bool CastCharacter(Vector3 origin, Vector3 desiredMovement, out RaycastHit hitInfo)
