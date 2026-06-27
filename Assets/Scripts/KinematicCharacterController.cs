@@ -4,23 +4,21 @@ public class KinematicCharacterController : MonoBehaviour
 {
     // Object references
     private Rigidbody rb;
-    private CapsuleCollider collider;
+    private CapsuleCollider capsule;
 
     // Fields
     private float groundCheckOffset = 0.05f;
-    public float moveSpeed = 3f;
-    public float colliderPadding = 0.05f; // Keep this 10% of collider radius
+    public float speed = 3f;
 
-    // Global variables
-    private RaycastHit groundCheckHitInfo;
-    private RaycastHit moveProjectionHitInfo;
-    private Vector2 movementInputs;
-    private Vector3 velocityVector;
+    void Awake()
+    {
+        rb = this.GetComponent<Rigidbody>();
+        capsule = this.GetComponentInChildren<CapsuleCollider>();
+    }
 
     void Start()
     {
-        rb = this.GetComponent<Rigidbody>();
-        collider = this.GetComponent<CapsuleCollider>();
+        
     }
 
     void Update()
@@ -30,90 +28,54 @@ public class KinematicCharacterController : MonoBehaviour
 
     void FixedUpdate()
     {
-        movementInputs = new Vector2(
-            Input.GetAxis("Horizontal"),
-            Input.GetAxis("Vertical")
+        Vector2 movementInputs = new Vector2(
+            Input.GetAxis("Horizontal"), // left, right/a, d
+            Input.GetAxis("Vertical") // forward, backward/w, s
         );
 
-        velocityVector = (this.transform.forward * movementInputs.y + this.transform.right * movementInputs.x).normalized * moveSpeed;
-        Vector3 newPosition = CalculateNewPosition(rb.position, velocityVector, collider);
-        rb.MovePosition(newPosition);
+        Vector3 movement = (Vector3.forward * movementInputs.y + Vector3.right * movementInputs.x).normalized * speed;
+        Vector3 currentPosition = rb.position;
+        Vector3 nextPosition = GetNextPosition(currentPosition, movement);
+        rb.MovePosition(nextPosition);
     }
 
-    private Vector3 CalculateNewPosition(Vector3 start, Vector3 velocityVector, CapsuleCollider playerCollider)
+    private Vector3 GetNextPosition(Vector3 currentPosition, Vector3 movement)
     {
-        Vector3 moveVector = GetMovementThisFrame(velocityVector);
-        Vector3 endPosition = RecursiveMove(start, moveVector, 0, playerCollider);
-        return endPosition;
+        Vector3 frameAdjustedMovement = GetMovementThisFrame(movement);
+        Vector3 nextPosition = ResolveMovement(currentPosition, frameAdjustedMovement);
+        return nextPosition;
     }
 
-    private Vector3 GetMovementThisFrame(Vector3 velocityVector)
+    private Vector3 GetMovementThisFrame(Vector3 movement)
     {
-        return velocityVector * Time.fixedDeltaTime;
+        return movement * Time.fixedDeltaTime;
     }
 
-    private Vector3 RecursiveMove(Vector3 start, Vector3 moveVector, int numBounces, CapsuleCollider collider)
+    private Vector3 ResolveMovement(Vector3 currentPosition, Vector3 frameAdjustedMovement)
     {
-        Vector3 newMoveVector;
-        Vector3 newPosition;
-        Vector3 remainingMoveVector;
-        Vector3 adjustedMoveVector;
+        Vector3 finalPosition;
 
-        RaycastHit moveProjectionHitInfo;
-        bool collided = ProjectMovement(start, collider, moveVector, out moveProjectionHitInfo);
-        if (!collided || numBounces > 5)
-        {
-            newPosition = start + moveVector;
-            return newPosition;
+        RaycastHit hitInfo;
+        bool collided = CastCharacter(currentPosition, frameAdjustedMovement, out hitInfo);
+        if (collided) {
+            Debug.Log($"Collided at {hitInfo.point}");
+            finalPosition = currentPosition;
         }
         else
         {
-            newMoveVector = moveVector.normalized * (moveProjectionHitInfo.distance - colliderPadding);
-            newPosition = start + newMoveVector;
-            remainingMoveVector = moveVector - newMoveVector;
-            adjustedMoveVector = Vector3.ProjectOnPlane(remainingMoveVector, moveProjectionHitInfo.normal);
-            return RecursiveMove(newPosition, adjustedMoveVector, numBounces + 1, collider);
+            finalPosition = currentPosition + frameAdjustedMovement;
         }
+
+        return finalPosition;
     }
 
-    private bool ProjectMovement(Vector3 origin, CapsuleCollider collider, Vector3 moveVector, out RaycastHit moveProjectionHitInfo)
+    private bool CastCharacter(Vector3 origin, Vector3 desiredMovement, out RaycastHit hitInfo)
     {
-        (Vector3 top, Vector3 bottom) sphereCenters = CalculateSpheresInCapsule(origin, collider.height, collider.radius);
-        float effectiveRadius = collider.radius - colliderPadding;
-        return Physics.CapsuleCast(sphereCenters.top, sphereCenters.bottom, effectiveRadius, moveVector.normalized, out moveProjectionHitInfo, moveVector.magnitude);
-    }
-    
-    private (Vector3, Vector3) CalculateSpheresInCapsule(Vector3 capsuleCenter, float capsuleHeight, float capsuleRadius)
-    {
-        // TODO: this function needs to account for collider center relative to transform
-        Vector3 top, bottom;
-        float yOffset;
-
-        yOffset = capsuleHeight / 2f;
-        top = capsuleCenter + new Vector3(0f, yOffset, 0f);
-        bottom = capsuleCenter - new Vector3(0f, yOffset, 0f);
-
-        return (top, bottom);
-    }
-
-    // TODO: refactor
-    private RaycastHit GroundCheck()
-    {
-        Physics.SphereCast(this.transform.position, collider.radius, Vector3.down, out RaycastHit hitInfo, collider.height / 2f + groundCheckOffset);
-
-        return hitInfo;
-    }
-
-    private void OnDrawGizmos()
-    {
-        if (Application.isPlaying)
-        {
-            Gizmos.DrawWireSphere(this.transform.position + (Vector3.down * (collider.height / 2f + groundCheckOffset)), collider.radius);
-            (Vector3 top, Vector3 bottom) sphereCenters = CalculateSpheresInCapsule(this.transform.position, collider.height, collider.radius);
-            Vector3 moveVector = velocityVector * Time.fixedDeltaTime;
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(sphereCenters.top + moveVector, collider.radius);
-            Gizmos.DrawWireSphere(sphereCenters.bottom + moveVector, collider.radius);
-        }
+        Vector3 capsulePosition = capsule.transform.position;
+        float capsuleHeight = capsule.height;
+        float capsuleRadius = capsule.radius;
+        Vector3 capsuleTop = capsulePosition + Vector3.up * (capsuleHeight/2 - capsuleRadius);
+        Vector3 capsuleBottom = capsulePosition - Vector3.up * (capsuleHeight/2 - capsuleRadius);
+        return Physics.CapsuleCast(capsuleTop, capsuleBottom, capsuleRadius, desiredMovement.normalized, out hitInfo, desiredMovement.magnitude);
     }
 }
