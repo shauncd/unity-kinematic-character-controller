@@ -21,13 +21,13 @@ public class CameraController : MonoBehaviour
         );
 
         newRotation = CalculateNewRotation(playerCamera.transform.rotation, lookInputs, lookSpeed);
+        playerCamera.transform.rotation = newRotation;
     }
 
     void LateUpdate()
     {
         playerCamera.transform.position = cameraHolder.position;
         //playerCamera.transform.rotation = cameraHolder.rotation;
-        playerCamera.transform.rotation = newRotation;
     }
 
     private Quaternion CalculateNewRotation(Quaternion currentRotation, Vector2 lookInputs, float lookSpeed)

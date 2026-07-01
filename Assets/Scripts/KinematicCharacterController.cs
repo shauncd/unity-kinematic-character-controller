@@ -5,11 +5,12 @@ public class KinematicCharacterController : MonoBehaviour
     // Object references
     private Rigidbody rb;
     private CapsuleCollider capsule;
+    public GameObject playerCamera;
 
     // Fields
     private float groundCheckOffset = 0.05f;
     public float speed = 3f;
-    public float collisionBuffer = 0.025f;
+    public float collisionBuffer = 0.05f;
 
     void Awake()
     {
@@ -24,7 +25,8 @@ public class KinematicCharacterController : MonoBehaviour
             Input.GetAxis("Vertical") // forward, backward/w, s
         );
 
-        Vector3 movement = (Vector3.forward * movementInputs.y + Vector3.right * movementInputs.x).normalized * speed;
+        rb.rotation = Quaternion.Euler(0f, playerCamera.transform.rotation.eulerAngles.y, 0f);
+        Vector3 movement = (this.transform.forward * movementInputs.y + this.transform.right * movementInputs.x).normalized * speed;
         Vector3 currentPosition = rb.position;
         Vector3 nextPosition = GetNextPosition(currentPosition, movement);
         rb.MovePosition(nextPosition);
@@ -71,11 +73,11 @@ public class KinematicCharacterController : MonoBehaviour
 
     private bool CastCharacter(Vector3 origin, Vector3 desiredMovement, out RaycastHit hitInfo)
     {
-        Vector3 capsulePosition = capsule.transform.position;
+        Vector3 capsulePosition = origin;
         float capsuleHeight = capsule.height;
         float capsuleRadius = capsule.radius;
-        Vector3 capsuleTop = capsulePosition + Vector3.up * (capsuleHeight/2 - capsuleRadius);
-        Vector3 capsuleBottom = capsulePosition - Vector3.up * (capsuleHeight/2 - capsuleRadius);
+        Vector3 capsuleTop = origin + Vector3.up * (capsuleHeight - capsuleRadius);
+        Vector3 capsuleBottom = origin + Vector3.up * capsuleRadius;
         return Physics.CapsuleCast(capsuleTop, capsuleBottom, capsuleRadius, desiredMovement.normalized, out hitInfo, desiredMovement.magnitude);
     }
 }
