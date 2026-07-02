@@ -25,6 +25,10 @@ public class KinematicCharacterController : MonoBehaviour
             Input.GetAxis("Vertical") // forward, backward/w, s
         );
 
+        RaycastHit hitInfo;
+        bool grounded = GroundCheck(rb.position, out hitInfo);
+        Debug.Log($"grounded: {grounded}");
+
         rb.rotation = Quaternion.Euler(0f, playerCamera.transform.rotation.eulerAngles.y, 0f);
         Vector3 movement = (this.transform.forward * movementInputs.y + this.transform.right * movementInputs.x).normalized * speed;
         Vector3 currentPosition = rb.position;
@@ -63,7 +67,6 @@ public class KinematicCharacterController : MonoBehaviour
             return startPosition + desiredMovement;
         }
 
-        Debug.Log($"{hitInfo.distance}");
         Vector3 toMove = desiredMovement.normalized * (hitInfo.distance - collisionBuffer);
         Vector3 remainingMove = desiredMovement - toMove;
         Vector3 newPosition = startPosition + toMove;
@@ -80,5 +83,12 @@ public class KinematicCharacterController : MonoBehaviour
         Vector3 capsuleTop = origin + Vector3.up * (capsuleHeight - capsuleRadius);
         Vector3 capsuleBottom = origin + Vector3.up * capsuleRadius;
         return Physics.CapsuleCast(capsuleTop, capsuleBottom, capsuleRadius, desiredMovement.normalized, out hitInfo, desiredMovement.magnitude + collisionBuffer);
+    }
+
+    private bool GroundCheck(Vector3 characterPosition, out RaycastHit hitInfo)
+    {
+        float capsuleRadius = capsule.radius;
+        Vector3 origin = characterPosition + Vector3.up * capsuleRadius;
+        return Physics.SphereCast(origin, capsuleRadius - collisionBuffer, Vector3.down, out hitInfo, collisionBuffer + 0.05f);
     }
 }
