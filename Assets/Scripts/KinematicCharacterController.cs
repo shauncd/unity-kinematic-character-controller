@@ -63,6 +63,7 @@ public class KinematicCharacterController : MonoBehaviour
             return startPosition + desiredMovement;
         }
 
+        Debug.Log($"{hitInfo.distance}");
         Vector3 toMove = desiredMovement.normalized * (hitInfo.distance - collisionBuffer);
         Vector3 remainingMove = desiredMovement - toMove;
         Vector3 newPosition = startPosition + toMove;
@@ -78,6 +79,6 @@ public class KinematicCharacterController : MonoBehaviour
         float capsuleRadius = capsule.radius;
         Vector3 capsuleTop = origin + Vector3.up * (capsuleHeight - capsuleRadius);
         Vector3 capsuleBottom = origin + Vector3.up * capsuleRadius;
-        return Physics.CapsuleCast(capsuleTop, capsuleBottom, capsuleRadius, desiredMovement.normalized, out hitInfo, desiredMovement.magnitude);
+        return Physics.CapsuleCast(capsuleTop, capsuleBottom, capsuleRadius, desiredMovement.normalized, out hitInfo, desiredMovement.magnitude + collisionBuffer);
     }
 }

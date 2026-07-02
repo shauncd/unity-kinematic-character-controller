@@ -307,7 +307,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::KinematicCharacterController
   playerCamera: {fileID: 330585543}
   speed: 3
-  collisionBuffer: 0.025
+  collisionBuffer: 0.05
 --- !u!114 &237115552
 MonoBehaviour:
   m_ObjectHideFlags: 0
